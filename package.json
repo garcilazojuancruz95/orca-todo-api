@@ -1,0 +1,18 @@
+{
+  "name": "primera-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API REST sencilla de tareas con Node.js y Express",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
