@@ -20,6 +20,26 @@ $env:PORT = '3001'
 npm start
 ```
 
+## Ejecutar con Docker
+
+Necesitás Docker con el motor de contenedores Linux iniciado. Desde la raíz del proyecto:
+
+```sh
+docker build -t tareas-api .
+docker volume create tareas-data
+docker run -d --name tareas-api -p 127.0.0.1:3000:3000 -v tareas-data:/app/data tareas-api
+```
+
+La API queda disponible en `http://localhost:3000/tareas`. El volumen `tareas-data` conserva SQLite al eliminar y recrear el contenedor; reutilizá ese volumen en cada ejecución. Para usar otro puerto local, cambiá el mapeo a `-p 127.0.0.1:3001:3000`.
+
+```sh
+docker logs tareas-api
+docker stop tareas-api
+docker rm tareas-api
+```
+
+La imagen ejecuta Node.js como usuario sin privilegios y configura `HOST=0.0.0.0` para recibir conexiones mediante el puerto publicado. Fuera de Docker, `HOST` usa `127.0.0.1` por defecto. Las herramientas de compilación de SQLite quedan en una etapa separada de la imagen final.
+
 ## Almacenamiento
 
 Al iniciar, se crean automáticamente el directorio `data/`, el archivo `data/tareas.sqlite` y la tabla de tareas si no existen. La ubicación predeterminada es relativa a la raíz del proyecto, independientemente del directorio desde donde se ejecute Node.js. Los archivos de datos están excluidos de Git.
@@ -39,7 +59,7 @@ Usá siempre el mismo archivo para conservar las tareas entre reinicios y un dir
 | --- | --- | --- |
 | GET | `/tareas` | `200`: listado de tareas (inicialmente `[]`) |
 | POST | `/tareas` | `201`: tarea creada con `id` UUID y `titulo` |
-| PUT | `/tareas/:id` | `200`: tarea actualizada con `id` y `titulo`; `404` si no existe |
+| PUT | `/tareas/:id` | `200`: tarea con título actualizado e igual `id`; `404` si no existe |
 | DELETE | `/tareas/:id` | `204`: eliminada, sin cuerpo; `404` si no existe |
 
 Para crear o editar una tarea, enviá `Content-Type: application/json` y un cuerpo como `{"titulo":"Comprar pan"}`. El título es obligatorio y debe tener entre 1 y 200 caracteres después de quitar espacios al inicio y al final. Los campos adicionales se ignoran.
@@ -53,6 +73,8 @@ Invoke-RestMethod http://localhost:3000/tareas
 
 $tarea = Invoke-RestMethod http://localhost:3000/tareas -Method Post -ContentType 'application/json' -Body '{"titulo":"Comprar pan"}'
 $tarea
+
+Invoke-RestMethod "http://localhost:3000/tareas/$($tarea.id)" -Method Put -ContentType 'application/json' -Body '{"titulo":"Comprar leche"}'
 
 Invoke-RestMethod http://localhost:3000/tareas
 Invoke-RestMethod "http://localhost:3000/tareas/$($tarea.id)" -Method Delete

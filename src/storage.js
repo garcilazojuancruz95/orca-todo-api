@@ -16,11 +16,11 @@ export function createStorage(databasePath = process.env.DATABASE_PATH ?? defaul
     const list = db.prepare('SELECT id, titulo FROM tareas ORDER BY rowid');
     const insert = db.prepare('INSERT INTO tareas (id, titulo) VALUES (?, ?)');
     const remove = db.prepare('DELETE FROM tareas WHERE id = ?');
-    const update = db.prepare('UPDATE tareas SET titulo = ? WHERE id = ?');
+    const update = db.prepare('UPDATE tareas SET titulo = ? WHERE id = ? RETURNING id, titulo');
     return {
       list: () => list.all(),
       insert: (tarea) => insert.run(tarea.id, tarea.titulo),
-      update: (id, titulo) => update.run(titulo, id).changes > 0,
+      update: (id, titulo) => update.get(titulo, id),
       delete: (id) => remove.run(id).changes > 0,
       close: () => db.close(),
     };

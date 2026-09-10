@@ -29,9 +29,8 @@ export function createApp({ databasePath } = {}) {
     if (typeof titulo !== 'string' || !titulo.trim() || titulo.trim().length > 200) {
       return res.status(400).json({ error: 'El titulo debe tener entre 1 y 200 caracteres.' });
     }
-
-    const tarea = { id: req.params.id, titulo: titulo.trim() };
-    if (!tareas.update(tarea.id, tarea.titulo)) {
+    const tarea = tareas.update(req.params.id, titulo.trim());
+    if (!tarea) {
       return res.status(404).json({ error: 'Tarea no encontrada.' });
     }
     res.json(tarea);
