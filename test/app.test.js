@@ -1,16 +1,39 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createApp } from '../src/app.js';
 
-async function setup(t) {
-  const server = createApp().listen(0, '127.0.0.1');
+async function temporaryDatabase(t) {
+  const directory = await mkdtemp(join(tmpdir(), 'tareas-test-'));
+  t.after(async () => {
+    for (const close of t.serverClosers ?? []) await close();
+    await rm(directory, { recursive: true, force: true });
+  });
+  return join(directory, 'data', 'tareas.sqlite');
+}
+
+async function setup(t, databasePath) {
+  databasePath ??= await temporaryDatabase(t);
+  const app = createApp({ databasePath });
+  const server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
-  t.after(() => new Promise((resolve, reject) => {
-    server.close((err) => err ? reject(err) : resolve());
-    server.closeAllConnections();
-  }));
-  return (path, options) => fetch(`http://127.0.0.1:${server.address().port}${path}`, options);
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    return new Promise((resolve, reject) => {
+      server.close((err) => err ? reject(err) : resolve());
+      server.closeAllConnections();
+    }).finally(() => app.locals.close());
+  };
+  t.after(close);
+  (t.serverClosers ??= []).push(close);
+  const request = (path, options) => fetch(`http://127.0.0.1:${server.address().port}${path}`, options);
+  request.close = close;
+  return request;
 }
 
 test('listar, crear y eliminar tareas sin afectar otras tareas', async (t) => {
@@ -57,4 +80,26 @@ test('rechazar entradas invalidas y devolver errores JSON', async (t) => {
   assert.equal(missing.status, 404);
   assert.equal(typeof (await missing.json()).error, 'string');
   assert.deepEqual(await (await request('/tareas')).json(), []);
+});
+
+test('persistir tareas y eliminaciones al reiniciar con la misma base', async (t) => {
+  const databasePath = await temporaryDatabase(t);
+  let request = await setup(t, databasePath);
+  const tareas = [];
+  for (const titulo of ["Leer 'SQLite'; --", 'Segunda tarea']) {
+    const response = await request('/tareas', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo }),
+    });
+    assert.equal(response.status, 201);
+    tareas.push(await response.json());
+  }
+  await request.close();
+  request = await setup(t, databasePath);
+  assert.deepEqual(await (await request('/tareas')).json(), tareas);
+  assert.equal((await request(`/tareas/${tareas[0].id}`, { method: 'DELETE' })).status, 204);
+  await request.close();
+  request = await setup(t, databasePath);
+  assert.deepEqual(await (await request('/tareas')).json(), [tareas[1]]);
+  assert.equal((await request(`/tareas/${tareas[0].id}`, { method: 'DELETE' })).status, 404);
+  await request.close();
 });

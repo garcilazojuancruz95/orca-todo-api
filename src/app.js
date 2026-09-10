@@ -1,14 +1,16 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
+import { createStorage } from './storage.js';
 
-export function createApp() {
+export function createApp({ databasePath } = {}) {
   const app = express();
-  const tareas = new Map();
+  const tareas = createStorage(databasePath);
+  app.locals.close = () => tareas.close();
 
   app.use(express.json({ limit: '16kb' }));
 
   app.get('/tareas', (req, res) => {
-    res.json([...tareas.values()]);
+    res.json(tareas.list());
   });
 
   app.post('/tareas', (req, res) => {
@@ -18,7 +20,7 @@ export function createApp() {
     }
 
     const tarea = { id: randomUUID(), titulo: titulo.trim() };
-    tareas.set(tarea.id, tarea);
+    tareas.insert(tarea);
     res.status(201).json(tarea);
   });
 
