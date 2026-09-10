@@ -59,6 +59,35 @@ test('listar, crear y eliminar tareas sin afectar otras tareas', async (t) => {
   assert.equal((await request(`/tareas/${first.id}`, { method: 'DELETE' })).status, 404);
 });
 
+test('editar, validar y persistir titulos sin afectar otras tareas', async (t) => {
+  const databasePath = await temporaryDatabase(t);
+  let request = await setup(t, databasePath);
+  const send = (path, method, body) => request(path, {
+    method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const first = await (await send('/tareas', 'POST', { titulo: 'Primera' })).json();
+  const second = await (await send('/tareas', 'POST', { titulo: 'Segunda' })).json();
+  for (const body of [{}, { titulo: '' }, { titulo: '   ' }, { titulo: 42 }, { titulo: null }, { titulo: 'a'.repeat(201) }, null]) {
+    const response = await send(`/tareas/${first.id}`, 'PUT', body);
+    assert.equal(response.status, 400);
+    assert.equal(typeof (await response.json()).error, 'string');
+  }
+  assert.equal((await request(`/tareas/${first.id}`, { method: 'PUT' })).status, 400);
+  assert.deepEqual(await (await request('/tareas')).json(), [first, second]);
+  for (const titulo of ['a'.repeat(200), "Leer 'SQLite'; --", "Leer 'SQLite'; --"]) {
+    const response = await send(`/tareas/${first.id}`, 'PUT', { titulo: `  ${titulo}  `, id: 'ignorado' });
+    assert.equal(response.status, 200);
+    first.titulo = titulo;
+    assert.deepEqual(await response.json(), first);
+  }
+  const missing = await send('/tareas/no-existe', 'PUT', { titulo: 'Nueva' });
+  assert.equal(missing.status, 404);
+  assert.deepEqual(await missing.json(), { error: 'Tarea no encontrada.' });
+  await request.close();
+  request = await setup(t, databasePath);
+  assert.deepEqual(await (await request('/tareas')).json(), [first, second]);
+});
+
 test('rechazar entradas invalidas y devolver errores JSON', async (t) => {
   const request = await setup(t);
   for (const body of [{}, { titulo: '' }, { titulo: '   ' }, { titulo: 42 }, { titulo: 'a'.repeat(201) }, null]) {
