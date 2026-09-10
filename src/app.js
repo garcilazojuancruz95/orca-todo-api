@@ -24,6 +24,19 @@ export function createApp({ databasePath } = {}) {
     res.status(201).json(tarea);
   });
 
+  app.put('/tareas/:id', (req, res) => {
+    const titulo = req.body?.titulo;
+    if (typeof titulo !== 'string' || !titulo.trim() || titulo.trim().length > 200) {
+      return res.status(400).json({ error: 'El titulo debe tener entre 1 y 200 caracteres.' });
+    }
+
+    const tarea = { id: req.params.id, titulo: titulo.trim() };
+    if (!tareas.update(tarea.id, tarea.titulo)) {
+      return res.status(404).json({ error: 'Tarea no encontrada.' });
+    }
+    res.json(tarea);
+  });
+
   app.delete('/tareas/:id', (req, res) => {
     if (!tareas.delete(req.params.id)) {
       return res.status(404).json({ error: 'Tarea no encontrada.' });

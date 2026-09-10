@@ -39,9 +39,10 @@ Usá siempre el mismo archivo para conservar las tareas entre reinicios y un dir
 | --- | --- | --- |
 | GET | `/tareas` | `200`: listado de tareas (inicialmente `[]`) |
 | POST | `/tareas` | `201`: tarea creada con `id` UUID y `titulo` |
+| PUT | `/tareas/:id` | `200`: tarea actualizada con `id` y `titulo`; `404` si no existe |
 | DELETE | `/tareas/:id` | `204`: eliminada, sin cuerpo; `404` si no existe |
 
-Para crear una tarea, enviá `Content-Type: application/json` y un cuerpo como `{"titulo":"Comprar pan"}`. El título es obligatorio y debe tener entre 1 y 200 caracteres después de quitar espacios al inicio y al final. Los campos adicionales se ignoran.
+Para crear o editar una tarea, enviá `Content-Type: application/json` y un cuerpo como `{"titulo":"Comprar pan"}`. El título es obligatorio y debe tener entre 1 y 200 caracteres después de quitar espacios al inicio y al final. Los campos adicionales se ignoran.
 
 Los errores tienen el formato `{"error":"mensaje"}`: `400` para títulos inválidos o JSON mal formado, `413` para cuerpos mayores de 16 KB y `404` para rutas inexistentes.
 

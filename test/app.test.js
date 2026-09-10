@@ -59,6 +59,60 @@ test('listar, crear y eliminar tareas sin afectar otras tareas', async (t) => {
   assert.equal((await request(`/tareas/${first.id}`, { method: 'DELETE' })).status, 404);
 });
 
+test('editar el titulo y persistir el cambio sin afectar otras tareas', async (t) => {
+  const databasePath = await temporaryDatabase(t);
+  let request = await setup(t, databasePath);
+  const tareas = [];
+  for (const titulo of ['Comprar pan', 'Estudiar']) {
+    const response = await request('/tareas', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titulo }),
+    });
+    assert.equal(response.status, 201);
+    tareas.push(await response.json());
+  }
+  const updated = { ...tareas[0], titulo: "Leer 'SQLite'; --" };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await request(`/tareas/${updated.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ titulo: `  ${updated.titulo}  ` }),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), updated);
+  }
+  assert.deepEqual(await (await request('/tareas')).json(), [updated, tareas[1]]);
+  await request.close();
+  request = await setup(t, databasePath);
+  assert.deepEqual(await (await request('/tareas')).json(), [updated, tareas[1]]);
+});
+
+test('rechazar titulos invalidos al editar sin modificar la tarea', async (t) => {
+  const request = await setup(t);
+  const tarea = await (await request('/tareas', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ titulo: 'Original' }),
+  })).json();
+  for (const body of [{}, { titulo: '' }, { titulo: '   ' }, { titulo: 42 }, { titulo: null }, { titulo: 'a'.repeat(201) }]) {
+    const response = await request(`/tareas/${tarea.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: 'El titulo debe tener entre 1 y 200 caracteres.' });
+  }
+  assert.equal((await request(`/tareas/${tarea.id}`, { method: 'PUT' })).status, 400);
+  assert.deepEqual(await (await request('/tareas')).json(), [tarea]);
+});
+
+test('devolver 404 al editar una tarea inexistente', async (t) => {
+  const request = await setup(t);
+  const response = await request('/tareas/no-existe', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ titulo: 'Nuevo titulo' }),
+  });
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { error: 'Tarea no encontrada.' });
+  assert.deepEqual(await (await request('/tareas')).json(), []);
+});
+
 test('rechazar entradas invalidas y devolver errores JSON', async (t) => {
   const request = await setup(t);
   for (const body of [{}, { titulo: '' }, { titulo: '   ' }, { titulo: 42 }, { titulo: 'a'.repeat(201) }, null]) {
