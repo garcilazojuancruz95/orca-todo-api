@@ -1,6 +1,6 @@
 # API de tareas
 
-API REST con Node.js y Express. Las tareas se guardan en memoria: al reiniciar el servidor se pierden. No requiere base de datos ni credenciales.
+API REST con Node.js, Express y SQLite mediante `better-sqlite3`. Las tareas se guardan en disco y persisten al reiniciar el servidor. No requiere un servidor de base de datos ni credenciales.
 
 ## Ejecutar localmente
 
@@ -19,6 +19,19 @@ El puerto se configura con la variable de entorno `PORT`. En PowerShell:
 $env:PORT = '3001'
 npm start
 ```
+
+## Almacenamiento
+
+Al iniciar, se crean automáticamente el directorio `data/`, el archivo `data/tareas.sqlite` y la tabla de tareas si no existen. La ubicación predeterminada es relativa a la raíz del proyecto, independientemente del directorio desde donde se ejecute Node.js. Los archivos de datos están excluidos de Git.
+
+Para elegir otro archivo, configurá `DATABASE_PATH` antes de iniciar (las rutas relativas se resuelven desde el directorio de trabajo):
+
+```powershell
+$env:DATABASE_PATH = 'C:/datos/tareas.sqlite'
+npm start
+```
+
+Usá siempre el mismo archivo para conservar las tareas entre reinicios y un directorio con permisos de escritura. Para hacer una copia de seguridad, detené el servidor y copiá el archivo SQLite. Borrarlo elimina las tareas; el siguiente inicio crea una base vacía.
 
 ## Rutas
 
@@ -51,6 +64,6 @@ Invoke-RestMethod http://localhost:3000/tareas
 npm test
 ```
 
-Las pruebas usan HTTP en un puerto temporal y verifican el ciclo de creación, listado y eliminación, la validación y las respuestas de error.
+Las pruebas usan HTTP en puertos temporales y bases SQLite aisladas en directorios temporales que se eliminan al finalizar. Verifican el ciclo de creación, listado y eliminación, la validación, las respuestas de error y la persistencia de tareas y eliminaciones al cerrar y volver a abrir el servidor con el mismo archivo. No modifican la base de uso local.
 
 Referencia: [instalación oficial de Express](https://expressjs.com/en/starter/installing/).
